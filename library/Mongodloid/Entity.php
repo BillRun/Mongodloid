@@ -283,6 +283,41 @@ class Mongodloid_Entity implements ArrayAccess {
 
 		return $this->collection()->remove($this);
 	}
+	
+	/**
+	 * Method to create auto increment of document
+	 * To use this method require counters collection, created by the next command:
+	 * 
+	 * @param string $field the field to set the auto increment
+	 * @param int $min_id the default value to use for the first value
+	 * @param Mongodloid_Collection $refCollection the collection to reference to 
+	 * 
+	 */
+	public function createAutoInc($field, $min_id = 1, $refCollection = null) {
+		
+		// check if already set auto increment for the field
+		$value = $this->get($field);
+		if ($value) {
+			return $value;
+		}
+
+		// check if collection exists for the entity
+		if (!is_null($refCollection)) {
+			$this->collection($refCollection);
+		} else if (!$this->collection()) {
+			return;
+		}
+
+		// check if id exists (cannot create auto increment without id)
+		$id = $this->getId();
+		if (!$id) {
+			return;
+		}
+
+		$inc = $this->collection()->createAutoInc($id->getMongoID(), $min_id);
+		$this->set($field, $inc);
+		return $inc;
+	}
 
 	//=============== ArrayAccess Implementation =============
 	public function offsetExists($offset) {
