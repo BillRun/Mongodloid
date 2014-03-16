@@ -12,6 +12,7 @@ class Mongodloid_Entity implements ArrayAccess {
 
 	const POPFIRST = 1;
 
+	protected $w = 1;
 	private $_atomics = array(
 		'inc',
 //		'set',
@@ -139,9 +140,10 @@ class Mongodloid_Entity implements ArrayAccess {
 		if (!$this->collection())
 			throw new Mongodloid_Exception('You need to specify the collection');
 
-		return $this->_collection->update(array(
-				'_id' => $this->getId()->getMongoID()
-				), $fields);
+		$data = array(
+			'_id' => $this->getId()->getMongoID()
+		);
+		return $this->_collection->update($data, $fields, array('w' => $this->w));
 	}
 
 	public function set($key, $value, $dontSend = false) {
@@ -172,7 +174,7 @@ class Mongodloid_Entity implements ArrayAccess {
 			return $this->getId();
 		}
 
-		$lazyload = func_num_args() > 1 ? func_get_arg(1) : false;
+		$getRef = func_num_args() > 1 ? func_get_arg(1) : false;
 
 		$key = preg_replace('@\\[([^\\]]+)\\]@', '.$1', $key);
 		$result = $this->_values;
@@ -194,7 +196,7 @@ class Mongodloid_Entity implements ArrayAccess {
 			return null;
 		}
 
-		if (!$lazyload) {
+		if (!$getRef) {
 			//lazy load MongoId Ref objects or MongoDBRef
 			//http://docs.mongodb.org/manual/reference/database-references/
 			if ($result[$key] instanceof MongoId && $this->collection()) {
@@ -249,21 +251,35 @@ class Mongodloid_Entity implements ArrayAccess {
 		return $this->_values;
 	}
 
-	public function setRawData($data) {
+	/**
+	 * 
+	 * @param array $data
+	 * @param boolean $safe
+	 * @throws Mongodloid_Exception
+	 * @todo consider defaulting $safe to false because most of the time this is the behavior we want
+	 */
+	public function setRawData($data, $safe = true) {
 		if (!is_array($data))
 			throw new Mongodloid_Exception('Data must be an array!');
 
 		// prevent from making a link
-		$this->_values = unserialize(serialize($data));
+		if ($safe) {
+			$this->_values = unserialize(serialize($data));
+		} else {
+			$this->_values = $data;
+		}
 	}
 
-	public function save($collection = null, $save = false, $w = 1) {
+	public function save($collection = null, $save = false, $w = null) {
 		if ($collection instanceOf Mongodloid_Collection)
 			$this->collection($collection);
 
 		if (!$this->collection())
 			throw new Mongodloid_Exception('You need to specify the collection');
 
+		if (is_null($w)) {
+			$w = $this->w;
+		}
 		return $this->collection()->save($this, array('save' => $save, 'w' => $w));
 	}
 
